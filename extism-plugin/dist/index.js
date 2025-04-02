@@ -20,68 +20,111 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/index.ts
 var src_exports = {};
 __export(src_exports, {
-  create_event: () => create_event,
-  delete_event: () => delete_event,
-  list_events: () => list_events,
-  update_event: () => update_event
+  call: () => call,
+  describe: () => describe
 });
 module.exports = __toCommonJS(src_exports);
 
+// src/pdk.ts
+var CallToolRequest = class {
+  constructor(toolId, arguments_) {
+    this.toolId = toolId;
+    this.arguments = arguments_;
+  }
+  static fromJson(json) {
+    return new CallToolRequest(json.toolId, json.arguments || {});
+  }
+  static toJson(request) {
+    return {
+      toolId: request.toolId,
+      arguments: request.arguments
+    };
+  }
+};
+var CallToolResult = class {
+  constructor(state, result, error) {
+    this.state = state;
+    this.result = result;
+    this.error = error;
+  }
+  static fromJson(json) {
+    return new CallToolResult(json.state, json.result, json.error);
+  }
+  static toJson(result) {
+    const json = {
+      state: result.state,
+      result: result.result
+    };
+    if (result.error) {
+      json.error = result.error;
+    }
+    return json;
+  }
+};
+var Tool = class {
+  constructor(id, label, description, parameters) {
+    this.id = id;
+    this.label = label;
+    this.description = description;
+    this.parameters = parameters;
+  }
+  static fromJson(json) {
+    return new Tool(
+      json.id,
+      json.label,
+      json.description,
+      json.parameters || {}
+    );
+  }
+  static toJson(tool) {
+    return {
+      id: tool.id,
+      label: tool.label,
+      description: tool.description,
+      parameters: tool.parameters
+    };
+  }
+};
+var ListToolsResult = class {
+  constructor(tools) {
+    this.tools = tools;
+  }
+  static fromJson(json) {
+    const tools = (json.tools || []).map((t) => Tool.fromJson(t));
+    return new ListToolsResult(tools);
+  }
+  static toJson(result) {
+    return {
+      tools: result.tools.map((t) => Tool.toJson(t))
+    };
+  }
+};
+
 // src/handlers/calendar.ts
 function getArgs() {
-  const input = Host.inputString();
   try {
-    return JSON.parse(input);
+    const input = Host.inputString();
+    const args = JSON.parse(input);
+    return args;
   } catch (err) {
     Host.outputString(JSON.stringify({ error: "Invalid JSON input" }));
     return null;
   }
 }
-function getEventTimeRange(daysBack, daysForward) {
-  const timeMin = daysBack !== void 0 ? new Date(Date.now() - 1e3 * 60 * 60 * 24 * daysBack).toISOString() : void 0;
-  const timeMax = daysForward !== void 0 ? new Date(Date.now() + 1e3 * 60 * 60 * 24 * daysForward).toISOString() : void 0;
-  return { timeMin, timeMax };
-}
 function handleListEvents() {
-  const args = getArgs();
-  if (!args)
-    return 1;
-  const {
-    accessToken,
-    maxResults = 10,
-    daysBack = 0,
-    daysForward
-  } = args;
-  const { timeMin, timeMax } = getEventTimeRange(daysBack, daysForward);
-  const timeMinParam = timeMin ? `&timeMin=${timeMin}` : "";
-  const timeMaxParam = timeMax ? `&timeMax=${timeMax}` : "";
-  const maxResultsParam = maxResults ? `&maxResults=${maxResults}` : "";
-  const url = "https://www.googleapis.com/calendar/v3/calendars/primary/events?orderBy=startTime&singleEvents=true" + timeMinParam + timeMaxParam + maxResultsParam;
-  const response = Http.request({
-    url,
-    method: "GET",
-    headers: { "Authorization": `Bearer ${accessToken}` }
-  });
-  if (response.status !== 200) {
-    Host.outputString(JSON.stringify({ error: `Failed to fetch events: ${response.body}` }));
-    return 1;
-  }
-  let data;
   try {
-    data = JSON.parse(response.body);
-  } catch (err) {
-    Host.outputString(JSON.stringify({ error: "Invalid response from Google Calendar API" }));
+    Host.outputString(JSON.stringify({
+      status: "success",
+      message: "Plugin is working correctly",
+      note: "This is a test response to verify Extism runtime"
+    }, null, 2));
+    return 0;
+  } catch (error) {
+    Host.outputString(JSON.stringify({
+      error: `Error in test plugin: ${error.message || "Unknown error"}`
+    }));
     return 1;
   }
-  const events = data.items?.map((event) => ({
-    id: event.id,
-    summary: event.summary,
-    start: event.start,
-    end: event.end,
-    location: event.location
-  })) || [];
-  Host.outputString(JSON.stringify(events, null, 2));
-  return 0;
 }
 function handleCreateEvent() {
   const args = getArgs();
@@ -241,17 +284,127 @@ function handleDeleteEvent() {
   return 0;
 }
 
+// src/main.ts
+function callImpl(request) {
+  try {
+    const originalInputString = Host.inputString;
+    let outputContent = "";
+    Host.inputString = () => JSON.stringify(request.arguments);
+    const originalOutputString = Host.outputString;
+    Host.outputString = (content) => {
+      outputContent = content;
+      return content;
+    };
+    let result = 1;
+    switch (request.toolId) {
+      case "list_events":
+        result = handleListEvents();
+        break;
+      case "create_event":
+        result = handleCreateEvent();
+        break;
+      case "update_event":
+        result = handleUpdateEvent();
+        break;
+      case "delete_event":
+        result = handleDeleteEvent();
+        break;
+      default:
+        Host.inputString = originalInputString;
+        Host.outputString = originalOutputString;
+        return new CallToolResult("error", null, `Unknown tool: ${request.toolId}`);
+    }
+    Host.inputString = originalInputString;
+    Host.outputString = originalOutputString;
+    if (result === 0) {
+      try {
+        const parsedOutput = JSON.parse(outputContent);
+        return new CallToolResult("success", parsedOutput, void 0);
+      } catch (e) {
+        return new CallToolResult("success", outputContent, void 0);
+      }
+    } else {
+      try {
+        const parsedError = JSON.parse(outputContent);
+        return new CallToolResult("error", null, parsedError.error || "Unknown error");
+      } catch (e) {
+        return new CallToolResult("error", null, "Failed to process Calendar request");
+      }
+    }
+  } catch (err) {
+    return new CallToolResult("error", null, `Error: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+function describeImpl() {
+  const tools = [
+    new Tool(
+      "list_events",
+      "List Calendar Events",
+      "Lists events from the user's Google Calendar",
+      {
+        accessToken: { type: "string", description: "OAuth2 access token" },
+        maxResults: { type: "number", description: "Maximum number of events to return", optional: true },
+        daysBack: { type: "number", description: "Number of days to look back", optional: true },
+        daysForward: { type: "number", description: "Number of days to look forward", optional: true }
+      }
+    ),
+    new Tool(
+      "create_event",
+      "Create Calendar Event",
+      "Creates a new event in the user's Google Calendar",
+      {
+        accessToken: { type: "string", description: "OAuth2 access token" },
+        summary: { type: "string", description: "Event title" },
+        location: { type: "string", description: "Event location", optional: true },
+        description: { type: "string", description: "Event description", optional: true },
+        start: { type: "string", description: "Start time (ISO format)" },
+        end: { type: "string", description: "End time (ISO format)" },
+        attendees: { type: "array", description: "List of attendee email addresses", optional: true },
+        includeGoogleMeetDetails: { type: "boolean", description: "Whether to include Google Meet details", optional: true }
+      }
+    ),
+    new Tool(
+      "update_event",
+      "Update Calendar Event",
+      "Updates an existing event in the user's Google Calendar",
+      {
+        accessToken: { type: "string", description: "OAuth2 access token" },
+        eventId: { type: "string", description: "ID of the event to update" },
+        summary: { type: "string", description: "Event title", optional: true },
+        location: { type: "string", description: "Event location", optional: true },
+        description: { type: "string", description: "Event description", optional: true },
+        start: { type: "string", description: "Start time (ISO format)", optional: true },
+        end: { type: "string", description: "End time (ISO format)", optional: true },
+        attendees: { type: "array", description: "List of attendee email addresses", optional: true },
+        includeGoogleMeetDetails: { type: "boolean", description: "Whether to include Google Meet details", optional: true }
+      }
+    ),
+    new Tool(
+      "delete_event",
+      "Delete Calendar Event",
+      "Deletes an event from the user's Google Calendar",
+      {
+        accessToken: { type: "string", description: "OAuth2 access token" },
+        eventId: { type: "string", description: "ID of the event to delete" }
+      }
+    )
+  ];
+  return new ListToolsResult(tools);
+}
+
 // src/index.ts
-function list_events() {
-  return handleListEvents();
+function call() {
+  const untypedInput = JSON.parse(Host.inputString());
+  const input = CallToolRequest.fromJson(untypedInput);
+  const output = callImpl(input);
+  const untypedOutput = CallToolResult.toJson(output);
+  Host.outputString(JSON.stringify(untypedOutput));
+  return 0;
 }
-function create_event() {
-  return handleCreateEvent();
-}
-function update_event() {
-  return handleUpdateEvent();
-}
-function delete_event() {
-  return handleDeleteEvent();
+function describe() {
+  const output = describeImpl();
+  const untypedOutput = ListToolsResult.toJson(output);
+  Host.outputString(JSON.stringify(untypedOutput));
+  return 0;
 }
 //# sourceMappingURL=index.js.map
