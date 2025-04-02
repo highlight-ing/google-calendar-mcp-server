@@ -25,69 +25,86 @@ function getArgs(): any | null {
  * Helper function to get event time range based on daysBack and daysForward parameters.
  */
 function getEventTimeRange(daysBack?: number, daysForward?: number) {
-  const timeMin = daysBack !== undefined 
-    ? new Date(Date.now() - 1000 * 60 * 60 * 24 * daysBack).toISOString() 
-    : undefined;
-  
-  const timeMax = daysForward !== undefined 
-    ? new Date(Date.now() + 1000 * 60 * 60 * 24 * daysForward).toISOString() 
-    : undefined;
-  
+  const timeMin =
+    daysBack !== undefined
+      ? new Date(Date.now() - 1000 * 60 * 60 * 24 * daysBack).toISOString()
+      : undefined;
+
+  const timeMax =
+    daysForward !== undefined
+      ? new Date(Date.now() + 1000 * 60 * 60 * 24 * daysForward).toISOString()
+      : undefined;
+
   return { timeMin, timeMax };
 }
 
 /**
  * Handles listing events from the user's Google Calendar.
  * Fetches a list of events based on the provided parameters.
- * 
+ *
  * @returns 0 on success, 1 on error
  */
 export function handleListEvents(): number {
   try {
     // Just output a simple test message to confirm the plugin is working
-    Host.outputString(JSON.stringify({ 
-      status: "success", 
-      message: "Plugin is working correctly", 
-      note: "This is a test response to verify Extism runtime" 
-    }, null, 2));
+    Host.outputString(
+      JSON.stringify(
+        {
+          status: "success",
+          message: "Plugin is working correctly",
+          note: "This is a test response to verify Extism runtime",
+        },
+        null,
+        2
+      )
+    );
     return 0;
   } catch (error: any) {
-    Host.outputString(JSON.stringify({ 
-      error: `Error in test plugin: ${error.message || "Unknown error"}` 
-    }));
+    Host.outputString(
+      JSON.stringify({
+        error: `Error in test plugin: ${error.message || "Unknown error"}`,
+      })
+    );
     return 1;
   }
 }
 
 /**
  * Handles creating a new event in the user's Google Calendar.
- * 
+ *
  * @returns 0 on success, 1 on error
  */
 export function handleCreateEvent(): number {
+  const accessToken = Config.get("GOOGLE_ACCESS_TOKEN");
+
   const args = getArgs();
   if (!args) return 1;
 
-  const { 
-    accessToken, 
-    summary, 
-    location, 
-    description, 
-    start, 
-    end, 
+  const {
+    summary,
+    location,
+    description,
+    start,
+    end,
     attendees = [],
-    includeGoogleMeetDetails = false 
+    includeGoogleMeetDetails = false,
   } = args;
 
   // Validate required parameters
   if (!summary || !start || !end) {
-    Host.outputString(JSON.stringify({ error: "Missing required parameters: summary, start, and end are required" }));
+    Host.outputString(
+      JSON.stringify({
+        error:
+          "Missing required parameters: summary, start, and end are required",
+      })
+    );
     return 1;
   }
 
   // Generate a UUID for the conference request ID if needed
-  const conferenceRequestId = includeGoogleMeetDetails 
-    ? Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+  const conferenceRequestId = includeGoogleMeetDetails
+    ? Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15)
     : undefined;
 
   const event = {
@@ -96,18 +113,18 @@ export function handleCreateEvent(): number {
     description,
     start: {
       dateTime: start,
-      timeZone: 'UTC', // Use UTC as default timezone
+      timeZone: "UTC", // Use UTC as default timezone
     },
     end: {
       dateTime: end,
-      timeZone: 'UTC', // Use UTC as default timezone
+      timeZone: "UTC", // Use UTC as default timezone
     },
     attendees: attendees.map((email: string) => ({ email })),
     conferenceData: includeGoogleMeetDetails
       ? {
           createRequest: {
             conferenceSolutionKey: {
-              type: 'hangoutsMeet',
+              type: "hangoutsMeet",
             },
             requestId: conferenceRequestId,
           },
@@ -115,20 +132,24 @@ export function handleCreateEvent(): number {
       : undefined,
   };
 
-  const conferenceDataVersion = includeGoogleMeetDetails ? '1' : '0';
+  const conferenceDataVersion = includeGoogleMeetDetails ? "1" : "0";
 
-  const response = Http.request({
-    url: `https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=${conferenceDataVersion}`,
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
+  const response = Http.request(
+    {
+      url: `https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=${conferenceDataVersion}`,
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
     },
-    body: JSON.stringify(event),
-  });
+    JSON.stringify(event)
+  );
 
   if (response.status !== 200) {
-    Host.outputString(JSON.stringify({ error: `Failed to create event: ${response.body}` }));
+    Host.outputString(
+      JSON.stringify({ error: `Failed to create event: ${response.body}` })
+    );
     return 1;
   }
 
@@ -136,38 +157,49 @@ export function handleCreateEvent(): number {
   try {
     data = JSON.parse(response.body);
   } catch (err) {
-    Host.outputString(JSON.stringify({ error: "Invalid response from Google Calendar API" }));
+    Host.outputString(
+      JSON.stringify({ error: "Invalid response from Google Calendar API" })
+    );
     return 1;
   }
 
-  Host.outputString(JSON.stringify({ id: data.id, message: "Event created successfully" }, null, 2));
+  Host.outputString(
+    JSON.stringify(
+      { id: data.id, message: "Event created successfully" },
+      null,
+      2
+    )
+  );
   return 0;
 }
 
 /**
  * Handles updating an existing event in the user's Google Calendar.
- * 
+ *
  * @returns 0 on success, 1 on error
  */
 export function handleUpdateEvent(): number {
+  const accessToken = Config.get("GOOGLE_ACCESS_TOKEN");
+
   const args = getArgs();
   if (!args) return 1;
 
-  const { 
-    accessToken, 
-    eventId, 
-    summary, 
-    location, 
-    description, 
-    start, 
-    end, 
-    attendees, 
-    includeGoogleMeetDetails = false 
+  const {
+    eventId,
+    summary,
+    location,
+    description,
+    start,
+    end,
+    attendees,
+    includeGoogleMeetDetails = false,
   } = args;
 
   // Validate required parameters
   if (!eventId) {
-    Host.outputString(JSON.stringify({ error: "Missing required parameter: eventId" }));
+    Host.outputString(
+      JSON.stringify({ error: "Missing required parameter: eventId" })
+    );
     return 1;
   }
 
@@ -175,39 +207,43 @@ export function handleUpdateEvent(): number {
   if (summary !== undefined) event.summary = summary;
   if (location !== undefined) event.location = location;
   if (description !== undefined) event.description = description;
-  
+
   if (start !== undefined) {
     event.start = {
       dateTime: start,
-      timeZone: 'UTC', // Use UTC as default timezone
+      timeZone: "UTC", // Use UTC as default timezone
     };
   }
-  
+
   if (end !== undefined) {
     event.end = {
       dateTime: end,
-      timeZone: 'UTC', // Use UTC as default timezone
+      timeZone: "UTC", // Use UTC as default timezone
     };
   }
-  
+
   if (attendees !== undefined) {
     event.attendees = attendees.map((email: string) => ({ email }));
   }
 
-  const conferenceDataVersion = includeGoogleMeetDetails ? '1' : '0';
+  const conferenceDataVersion = includeGoogleMeetDetails ? "1" : "0";
 
-  const response = Http.request({
-    url: `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}?conferenceDataVersion=${conferenceDataVersion}`,
-    method: "PATCH",
-    headers: {
-      "Authorization": `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
+  const response = Http.request(
+    {
+      url: `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}?conferenceDataVersion=${conferenceDataVersion}`,
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
     },
-    body: JSON.stringify(event),
-  });
+    JSON.stringify(event)
+  );
 
   if (response.status !== 200) {
-    Host.outputString(JSON.stringify({ error: `Failed to update event: ${response.body}` }));
+    Host.outputString(
+      JSON.stringify({ error: `Failed to update event: ${response.body}` })
+    );
     return 1;
   }
 
@@ -215,28 +251,40 @@ export function handleUpdateEvent(): number {
   try {
     data = JSON.parse(response.body);
   } catch (err) {
-    Host.outputString(JSON.stringify({ error: "Invalid response from Google Calendar API" }));
+    Host.outputString(
+      JSON.stringify({ error: "Invalid response from Google Calendar API" })
+    );
     return 1;
   }
 
-  Host.outputString(JSON.stringify({ id: data.id, message: "Event updated successfully" }, null, 2));
+  Host.outputString(
+    JSON.stringify(
+      { id: data.id, message: "Event updated successfully" },
+      null,
+      2
+    )
+  );
   return 0;
 }
 
 /**
  * Handles deleting an event from the user's Google Calendar.
- * 
+ *
  * @returns 0 on success, 1 on error
  */
 export function handleDeleteEvent(): number {
+  const accessToken = Config.get("GOOGLE_ACCESS_TOKEN");
+
   const args = getArgs();
   if (!args) return 1;
 
-  const { accessToken, eventId } = args;
+  const { eventId } = args;
 
   // Validate required parameters
   if (!eventId) {
-    Host.outputString(JSON.stringify({ error: "Missing required parameter: eventId" }));
+    Host.outputString(
+      JSON.stringify({ error: "Missing required parameter: eventId" })
+    );
     return 1;
   }
 
@@ -244,15 +292,19 @@ export function handleDeleteEvent(): number {
     url: `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
     method: "DELETE",
     headers: {
-      "Authorization": `Bearer ${accessToken}`,
+      Authorization: `Bearer ${accessToken}`,
     },
   });
 
   if (response.status !== 204 && response.status !== 200) {
-    Host.outputString(JSON.stringify({ error: `Failed to delete event: ${response.body}` }));
+    Host.outputString(
+      JSON.stringify({ error: `Failed to delete event: ${response.body}` })
+    );
     return 1;
   }
 
-  Host.outputString(JSON.stringify({ message: "Event deleted successfully" }, null, 2));
+  Host.outputString(
+    JSON.stringify({ message: "Event deleted successfully" }, null, 2)
+  );
   return 0;
-} 
+}

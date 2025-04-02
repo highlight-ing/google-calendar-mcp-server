@@ -2,18 +2,13 @@
  * Main implementation for the Google Calendar Extism Plugin.
  * This file contains the core implementation that processes the requests from the host.
  */
-import {
-  CallToolRequest,
-  CallToolResult,
-  ListToolsResult,
-  Tool
-} from "./pdk";
+import { CallToolRequest, CallToolResult, ListToolsResult, Tool } from "./pdk";
 
 import {
   handleListEvents,
   handleCreateEvent,
   handleUpdateEvent,
-  handleDeleteEvent
+  handleDeleteEvent,
 } from "./handlers/calendar";
 
 /**
@@ -26,7 +21,7 @@ export function callImpl(request: CallToolRequest): CallToolResult {
     // Set up input for the handlers
     const originalInputString = Host.inputString;
     let outputContent: string = "";
-    
+
     // Override Host.inputString and Host.outputString for the handlers
     Host.inputString = () => JSON.stringify(request.arguments);
     const originalOutputString = Host.outputString;
@@ -34,38 +29,42 @@ export function callImpl(request: CallToolRequest): CallToolResult {
       outputContent = content;
       return content;
     };
-    
+
     let result: number = 1;
-    
+
     // Route the request to the appropriate handler based on the toolId
     switch (request.toolId) {
       case "list_events":
         result = handleListEvents();
         break;
-        
+
       case "create_event":
         result = handleCreateEvent();
         break;
-        
+
       case "update_event":
         result = handleUpdateEvent();
         break;
-        
+
       case "delete_event":
         result = handleDeleteEvent();
         break;
-        
+
       default:
         // Restore original methods
         Host.inputString = originalInputString;
         Host.outputString = originalOutputString;
-        return new CallToolResult("error", null, `Unknown tool: ${request.toolId}`);
+        return new CallToolResult(
+          "error",
+          null,
+          `Unknown tool: ${request.toolId}`
+        );
     }
-    
+
     // Restore original methods
     Host.inputString = originalInputString;
     Host.outputString = originalOutputString;
-    
+
     // Process result
     if (result === 0) {
       try {
@@ -77,13 +76,25 @@ export function callImpl(request: CallToolRequest): CallToolResult {
     } else {
       try {
         const parsedError = JSON.parse(outputContent);
-        return new CallToolResult("error", null, parsedError.error || "Unknown error");
+        return new CallToolResult(
+          "error",
+          null,
+          parsedError.error || "Unknown error"
+        );
       } catch (e) {
-        return new CallToolResult("error", null, "Failed to process Calendar request");
+        return new CallToolResult(
+          "error",
+          null,
+          "Failed to process Calendar request"
+        );
       }
     }
   } catch (err) {
-    return new CallToolResult("error", null, `Error: ${err instanceof Error ? err.message : String(err)}`);
+    return new CallToolResult(
+      "error",
+      null,
+      `Error: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 }
 
@@ -98,10 +109,21 @@ export function describeImpl(): ListToolsResult {
       "List Calendar Events",
       "Lists events from the user's Google Calendar",
       {
-        accessToken: { type: "string", description: "OAuth2 access token" },
-        maxResults: { type: "number", description: "Maximum number of events to return", optional: true },
-        daysBack: { type: "number", description: "Number of days to look back", optional: true },
-        daysForward: { type: "number", description: "Number of days to look forward", optional: true }
+        maxResults: {
+          type: "number",
+          description: "Maximum number of events to return",
+          optional: true,
+        },
+        daysBack: {
+          type: "number",
+          description: "Number of days to look back",
+          optional: true,
+        },
+        daysForward: {
+          type: "number",
+          description: "Number of days to look forward",
+          optional: true,
+        },
       }
     ),
     new Tool(
@@ -109,14 +131,29 @@ export function describeImpl(): ListToolsResult {
       "Create Calendar Event",
       "Creates a new event in the user's Google Calendar",
       {
-        accessToken: { type: "string", description: "OAuth2 access token" },
         summary: { type: "string", description: "Event title" },
-        location: { type: "string", description: "Event location", optional: true },
-        description: { type: "string", description: "Event description", optional: true },
+        location: {
+          type: "string",
+          description: "Event location",
+          optional: true,
+        },
+        description: {
+          type: "string",
+          description: "Event description",
+          optional: true,
+        },
         start: { type: "string", description: "Start time (ISO format)" },
         end: { type: "string", description: "End time (ISO format)" },
-        attendees: { type: "array", description: "List of attendee email addresses", optional: true },
-        includeGoogleMeetDetails: { type: "boolean", description: "Whether to include Google Meet details", optional: true }
+        attendees: {
+          type: "array",
+          description: "List of attendee email addresses",
+          optional: true,
+        },
+        includeGoogleMeetDetails: {
+          type: "boolean",
+          description: "Whether to include Google Meet details",
+          optional: true,
+        },
       }
     ),
     new Tool(
@@ -124,15 +161,38 @@ export function describeImpl(): ListToolsResult {
       "Update Calendar Event",
       "Updates an existing event in the user's Google Calendar",
       {
-        accessToken: { type: "string", description: "OAuth2 access token" },
         eventId: { type: "string", description: "ID of the event to update" },
         summary: { type: "string", description: "Event title", optional: true },
-        location: { type: "string", description: "Event location", optional: true },
-        description: { type: "string", description: "Event description", optional: true },
-        start: { type: "string", description: "Start time (ISO format)", optional: true },
-        end: { type: "string", description: "End time (ISO format)", optional: true },
-        attendees: { type: "array", description: "List of attendee email addresses", optional: true },
-        includeGoogleMeetDetails: { type: "boolean", description: "Whether to include Google Meet details", optional: true }
+        location: {
+          type: "string",
+          description: "Event location",
+          optional: true,
+        },
+        description: {
+          type: "string",
+          description: "Event description",
+          optional: true,
+        },
+        start: {
+          type: "string",
+          description: "Start time (ISO format)",
+          optional: true,
+        },
+        end: {
+          type: "string",
+          description: "End time (ISO format)",
+          optional: true,
+        },
+        attendees: {
+          type: "array",
+          description: "List of attendee email addresses",
+          optional: true,
+        },
+        includeGoogleMeetDetails: {
+          type: "boolean",
+          description: "Whether to include Google Meet details",
+          optional: true,
+        },
       }
     ),
     new Tool(
@@ -140,11 +200,10 @@ export function describeImpl(): ListToolsResult {
       "Delete Calendar Event",
       "Deletes an event from the user's Google Calendar",
       {
-        accessToken: { type: "string", description: "OAuth2 access token" },
-        eventId: { type: "string", description: "ID of the event to delete" }
+        eventId: { type: "string", description: "ID of the event to delete" },
       }
-    )
+    ),
   ];
-  
+
   return new ListToolsResult(tools);
-} 
+}

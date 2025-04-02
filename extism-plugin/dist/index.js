@@ -113,25 +113,33 @@ function getArgs() {
 }
 function handleListEvents() {
   try {
-    Host.outputString(JSON.stringify({
-      status: "success",
-      message: "Plugin is working correctly",
-      note: "This is a test response to verify Extism runtime"
-    }, null, 2));
+    Host.outputString(
+      JSON.stringify(
+        {
+          status: "success",
+          message: "Plugin is working correctly",
+          note: "This is a test response to verify Extism runtime"
+        },
+        null,
+        2
+      )
+    );
     return 0;
   } catch (error) {
-    Host.outputString(JSON.stringify({
-      error: `Error in test plugin: ${error.message || "Unknown error"}`
-    }));
+    Host.outputString(
+      JSON.stringify({
+        error: `Error in test plugin: ${error.message || "Unknown error"}`
+      })
+    );
     return 1;
   }
 }
 function handleCreateEvent() {
+  const accessToken = Config.get("GOOGLE_ACCESS_TOKEN");
   const args = getArgs();
   if (!args)
     return 1;
   const {
-    accessToken,
     summary,
     location,
     description,
@@ -141,7 +149,11 @@ function handleCreateEvent() {
     includeGoogleMeetDetails = false
   } = args;
   if (!summary || !start || !end) {
-    Host.outputString(JSON.stringify({ error: "Missing required parameters: summary, start, and end are required" }));
+    Host.outputString(
+      JSON.stringify({
+        error: "Missing required parameters: summary, start, and end are required"
+      })
+    );
     return 1;
   }
   const conferenceRequestId = includeGoogleMeetDetails ? Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15) : void 0;
@@ -170,35 +182,47 @@ function handleCreateEvent() {
     } : void 0
   };
   const conferenceDataVersion = includeGoogleMeetDetails ? "1" : "0";
-  const response = Http.request({
-    url: `https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=${conferenceDataVersion}`,
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${accessToken}`,
-      "Content-Type": "application/json"
+  const response = Http.request(
+    {
+      url: `https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=${conferenceDataVersion}`,
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      }
     },
-    body: JSON.stringify(event)
-  });
+    JSON.stringify(event)
+  );
   if (response.status !== 200) {
-    Host.outputString(JSON.stringify({ error: `Failed to create event: ${response.body}` }));
+    Host.outputString(
+      JSON.stringify({ error: `Failed to create event: ${response.body}` })
+    );
     return 1;
   }
   let data;
   try {
     data = JSON.parse(response.body);
   } catch (err) {
-    Host.outputString(JSON.stringify({ error: "Invalid response from Google Calendar API" }));
+    Host.outputString(
+      JSON.stringify({ error: "Invalid response from Google Calendar API" })
+    );
     return 1;
   }
-  Host.outputString(JSON.stringify({ id: data.id, message: "Event created successfully" }, null, 2));
+  Host.outputString(
+    JSON.stringify(
+      { id: data.id, message: "Event created successfully" },
+      null,
+      2
+    )
+  );
   return 0;
 }
 function handleUpdateEvent() {
+  const accessToken = Config.get("GOOGLE_ACCESS_TOKEN");
   const args = getArgs();
   if (!args)
     return 1;
   const {
-    accessToken,
     eventId,
     summary,
     location,
@@ -209,7 +233,9 @@ function handleUpdateEvent() {
     includeGoogleMeetDetails = false
   } = args;
   if (!eventId) {
-    Host.outputString(JSON.stringify({ error: "Missing required parameter: eventId" }));
+    Host.outputString(
+      JSON.stringify({ error: "Missing required parameter: eventId" })
+    );
     return 1;
   }
   const event = {};
@@ -237,50 +263,69 @@ function handleUpdateEvent() {
     event.attendees = attendees.map((email) => ({ email }));
   }
   const conferenceDataVersion = includeGoogleMeetDetails ? "1" : "0";
-  const response = Http.request({
-    url: `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}?conferenceDataVersion=${conferenceDataVersion}`,
-    method: "PATCH",
-    headers: {
-      "Authorization": `Bearer ${accessToken}`,
-      "Content-Type": "application/json"
+  const response = Http.request(
+    {
+      url: `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}?conferenceDataVersion=${conferenceDataVersion}`,
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      }
     },
-    body: JSON.stringify(event)
-  });
+    JSON.stringify(event)
+  );
   if (response.status !== 200) {
-    Host.outputString(JSON.stringify({ error: `Failed to update event: ${response.body}` }));
+    Host.outputString(
+      JSON.stringify({ error: `Failed to update event: ${response.body}` })
+    );
     return 1;
   }
   let data;
   try {
     data = JSON.parse(response.body);
   } catch (err) {
-    Host.outputString(JSON.stringify({ error: "Invalid response from Google Calendar API" }));
+    Host.outputString(
+      JSON.stringify({ error: "Invalid response from Google Calendar API" })
+    );
     return 1;
   }
-  Host.outputString(JSON.stringify({ id: data.id, message: "Event updated successfully" }, null, 2));
+  Host.outputString(
+    JSON.stringify(
+      { id: data.id, message: "Event updated successfully" },
+      null,
+      2
+    )
+  );
   return 0;
 }
 function handleDeleteEvent() {
+  const accessToken = Config.get("GOOGLE_ACCESS_TOKEN");
   const args = getArgs();
   if (!args)
     return 1;
-  const { accessToken, eventId } = args;
+  const { eventId } = args;
   if (!eventId) {
-    Host.outputString(JSON.stringify({ error: "Missing required parameter: eventId" }));
+    Host.outputString(
+      JSON.stringify({ error: "Missing required parameter: eventId" })
+    );
     return 1;
   }
   const response = Http.request({
     url: `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
     method: "DELETE",
     headers: {
-      "Authorization": `Bearer ${accessToken}`
+      Authorization: `Bearer ${accessToken}`
     }
   });
   if (response.status !== 204 && response.status !== 200) {
-    Host.outputString(JSON.stringify({ error: `Failed to delete event: ${response.body}` }));
+    Host.outputString(
+      JSON.stringify({ error: `Failed to delete event: ${response.body}` })
+    );
     return 1;
   }
-  Host.outputString(JSON.stringify({ message: "Event deleted successfully" }, null, 2));
+  Host.outputString(
+    JSON.stringify({ message: "Event deleted successfully" }, null, 2)
+  );
   return 0;
 }
 
@@ -312,7 +357,11 @@ function callImpl(request) {
       default:
         Host.inputString = originalInputString;
         Host.outputString = originalOutputString;
-        return new CallToolResult("error", null, `Unknown tool: ${request.toolId}`);
+        return new CallToolResult(
+          "error",
+          null,
+          `Unknown tool: ${request.toolId}`
+        );
     }
     Host.inputString = originalInputString;
     Host.outputString = originalOutputString;
@@ -326,13 +375,25 @@ function callImpl(request) {
     } else {
       try {
         const parsedError = JSON.parse(outputContent);
-        return new CallToolResult("error", null, parsedError.error || "Unknown error");
+        return new CallToolResult(
+          "error",
+          null,
+          parsedError.error || "Unknown error"
+        );
       } catch (e) {
-        return new CallToolResult("error", null, "Failed to process Calendar request");
+        return new CallToolResult(
+          "error",
+          null,
+          "Failed to process Calendar request"
+        );
       }
     }
   } catch (err) {
-    return new CallToolResult("error", null, `Error: ${err instanceof Error ? err.message : String(err)}`);
+    return new CallToolResult(
+      "error",
+      null,
+      `Error: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 }
 function describeImpl() {
@@ -342,10 +403,21 @@ function describeImpl() {
       "List Calendar Events",
       "Lists events from the user's Google Calendar",
       {
-        accessToken: { type: "string", description: "OAuth2 access token" },
-        maxResults: { type: "number", description: "Maximum number of events to return", optional: true },
-        daysBack: { type: "number", description: "Number of days to look back", optional: true },
-        daysForward: { type: "number", description: "Number of days to look forward", optional: true }
+        maxResults: {
+          type: "number",
+          description: "Maximum number of events to return",
+          optional: true
+        },
+        daysBack: {
+          type: "number",
+          description: "Number of days to look back",
+          optional: true
+        },
+        daysForward: {
+          type: "number",
+          description: "Number of days to look forward",
+          optional: true
+        }
       }
     ),
     new Tool(
@@ -353,14 +425,29 @@ function describeImpl() {
       "Create Calendar Event",
       "Creates a new event in the user's Google Calendar",
       {
-        accessToken: { type: "string", description: "OAuth2 access token" },
         summary: { type: "string", description: "Event title" },
-        location: { type: "string", description: "Event location", optional: true },
-        description: { type: "string", description: "Event description", optional: true },
+        location: {
+          type: "string",
+          description: "Event location",
+          optional: true
+        },
+        description: {
+          type: "string",
+          description: "Event description",
+          optional: true
+        },
         start: { type: "string", description: "Start time (ISO format)" },
         end: { type: "string", description: "End time (ISO format)" },
-        attendees: { type: "array", description: "List of attendee email addresses", optional: true },
-        includeGoogleMeetDetails: { type: "boolean", description: "Whether to include Google Meet details", optional: true }
+        attendees: {
+          type: "array",
+          description: "List of attendee email addresses",
+          optional: true
+        },
+        includeGoogleMeetDetails: {
+          type: "boolean",
+          description: "Whether to include Google Meet details",
+          optional: true
+        }
       }
     ),
     new Tool(
@@ -368,15 +455,38 @@ function describeImpl() {
       "Update Calendar Event",
       "Updates an existing event in the user's Google Calendar",
       {
-        accessToken: { type: "string", description: "OAuth2 access token" },
         eventId: { type: "string", description: "ID of the event to update" },
         summary: { type: "string", description: "Event title", optional: true },
-        location: { type: "string", description: "Event location", optional: true },
-        description: { type: "string", description: "Event description", optional: true },
-        start: { type: "string", description: "Start time (ISO format)", optional: true },
-        end: { type: "string", description: "End time (ISO format)", optional: true },
-        attendees: { type: "array", description: "List of attendee email addresses", optional: true },
-        includeGoogleMeetDetails: { type: "boolean", description: "Whether to include Google Meet details", optional: true }
+        location: {
+          type: "string",
+          description: "Event location",
+          optional: true
+        },
+        description: {
+          type: "string",
+          description: "Event description",
+          optional: true
+        },
+        start: {
+          type: "string",
+          description: "Start time (ISO format)",
+          optional: true
+        },
+        end: {
+          type: "string",
+          description: "End time (ISO format)",
+          optional: true
+        },
+        attendees: {
+          type: "array",
+          description: "List of attendee email addresses",
+          optional: true
+        },
+        includeGoogleMeetDetails: {
+          type: "boolean",
+          description: "Whether to include Google Meet details",
+          optional: true
+        }
       }
     ),
     new Tool(
@@ -384,7 +494,6 @@ function describeImpl() {
       "Delete Calendar Event",
       "Deletes an event from the user's Google Calendar",
       {
-        accessToken: { type: "string", description: "OAuth2 access token" },
         eventId: { type: "string", description: "ID of the event to delete" }
       }
     )
