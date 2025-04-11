@@ -111,24 +111,91 @@ function getArgs() {
     return null;
   }
 }
+function getEventTimeRange(daysBack, daysForward) {
+  const timeMin = daysBack !== void 0 ? new Date(Date.now() - 1e3 * 60 * 60 * 24 * daysBack).toISOString() : void 0;
+  const timeMax = daysForward !== void 0 ? new Date(Date.now() + 1e3 * 60 * 60 * 24 * daysForward).toISOString() : void 0;
+  return { timeMin, timeMax };
+}
 function handleListEvents() {
   try {
-    Host.outputString(
-      JSON.stringify(
-        {
-          status: "success",
-          message: "Plugin is working correctly",
-          note: "This is a test response to verify Extism runtime"
-        },
-        null,
-        2
-      )
-    );
-    return 0;
+    const accessToken = Config.get("GOOGLE_ACCESS_TOKEN");
+    if (!accessToken) {
+      Host.outputString(
+        JSON.stringify({
+          error: "Missing required Google access token"
+        })
+      );
+      return 1;
+    }
+    const args = getArgs();
+    if (!args)
+      return 1;
+    const { maxResults = 10, daysBack, daysForward, calendarId = "primary" } = args;
+    const { timeMin, timeMax } = getEventTimeRange(daysBack, daysForward);
+    let url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?maxResults=${maxResults}`;
+    if (timeMin)
+      url += `&timeMin=${encodeURIComponent(timeMin)}`;
+    if (timeMax)
+      url += `&timeMax=${encodeURIComponent(timeMax)}`;
+    url += `&orderBy=startTime&singleEvents=true`;
+    const response = Http.request({
+      url,
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      }
+    });
+    if (response.status !== 200) {
+      Host.outputString(
+        JSON.stringify({
+          error: `Failed to list events: ${response.body}`,
+          status: response.status
+        })
+      );
+      return 1;
+    }
+    let data;
+    try {
+      data = JSON.parse(response.body);
+      const events = data.items.map((event) => {
+        return {
+          id: event.id,
+          summary: event.summary,
+          description: event.description,
+          location: event.location,
+          start: event.start,
+          end: event.end,
+          organizer: event.organizer,
+          attendees: event.attendees,
+          htmlLink: event.htmlLink,
+          conferenceData: event.conferenceData
+        };
+      });
+      Host.outputString(
+        JSON.stringify(
+          {
+            events,
+            nextPageToken: data.nextPageToken
+          },
+          null,
+          2
+        )
+      );
+      return 0;
+    } catch (err) {
+      Host.outputString(
+        JSON.stringify({
+          error: "Invalid response from Google Calendar API",
+          details: err instanceof Error ? err.message : String(err)
+        })
+      );
+      return 1;
+    }
   } catch (error) {
     Host.outputString(
       JSON.stringify({
-        error: `Error in test plugin: ${error.message || "Unknown error"}`
+        error: `Error listing events: ${error.message || "Unknown error"}`
       })
     );
     return 1;
