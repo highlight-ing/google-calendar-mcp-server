@@ -61,41 +61,16 @@ var CallToolResult = class {
     return json;
   }
 };
-var Tool = class {
-  constructor(id, label, description, parameters) {
-    this.id = id;
-    this.label = label;
-    this.description = description;
-    this.parameters = parameters;
-  }
-  static fromJson(json) {
-    return new Tool(
-      json.id,
-      json.label,
-      json.description,
-      json.parameters || {}
-    );
-  }
-  static toJson(tool) {
-    return {
-      id: tool.id,
-      label: tool.label,
-      description: tool.description,
-      parameters: tool.parameters
-    };
-  }
-};
 var ListToolsResult = class {
   constructor(tools) {
     this.tools = tools;
   }
   static fromJson(json) {
-    const tools = (json.tools || []).map((t) => Tool.fromJson(t));
-    return new ListToolsResult(tools);
+    return new ListToolsResult(json.tools || []);
   }
   static toJson(result) {
     return {
-      tools: result.tools.map((t) => Tool.toJson(t))
+      tools: result.tools
     };
   }
 };
@@ -405,7 +380,7 @@ function callImpl(request) {
     const originalOutputString = Host.outputString;
     Host.outputString = (content) => {
       outputContent = content;
-      return content;
+      return true;
     };
     let result = 1;
     switch (request.toolId) {
@@ -465,105 +440,144 @@ function callImpl(request) {
 }
 function describeImpl() {
   const tools = [
-    new Tool(
-      "list_events",
-      "List Calendar Events",
-      "Lists events from the user's Google Calendar",
-      {
-        maxResults: {
-          type: "number",
-          description: "Maximum number of events to return",
-          optional: true
-        },
-        daysBack: {
-          type: "number",
-          description: "Number of days to look back",
-          optional: true
-        },
-        daysForward: {
-          type: "number",
-          description: "Number of days to look forward",
-          optional: true
+    {
+      "type": "function",
+      "function": {
+        "name": "list_events",
+        "description": "Lists events from the user's Google Calendar",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "maxResults": {
+              "type": "integer",
+              "description": "Maximum number of events to return"
+            },
+            "daysBack": {
+              "type": "integer",
+              "description": "Number of days to look back"
+            },
+            "daysForward": {
+              "type": "integer",
+              "description": "Number of days to look forward"
+            },
+            "calendarId": {
+              "type": "string",
+              "description": "ID of the calendar to query, defaults to 'primary'"
+            }
+          },
+          "required": []
         }
       }
-    ),
-    new Tool(
-      "create_event",
-      "Create Calendar Event",
-      "Creates a new event in the user's Google Calendar",
-      {
-        summary: { type: "string", description: "Event title" },
-        location: {
-          type: "string",
-          description: "Event location",
-          optional: true
-        },
-        description: {
-          type: "string",
-          description: "Event description",
-          optional: true
-        },
-        start: { type: "string", description: "Start time (ISO format)" },
-        end: { type: "string", description: "End time (ISO format)" },
-        attendees: {
-          type: "array",
-          description: "List of attendee email addresses",
-          optional: true
-        },
-        includeGoogleMeetDetails: {
-          type: "boolean",
-          description: "Whether to include Google Meet details",
-          optional: true
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "create_event",
+        "description": "Creates a new event in the user's Google Calendar",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string",
+              "description": "Event title"
+            },
+            "location": {
+              "type": "string",
+              "description": "Event location"
+            },
+            "description": {
+              "type": "string",
+              "description": "Event description"
+            },
+            "start": {
+              "type": "string",
+              "description": "Start time (ISO format)"
+            },
+            "end": {
+              "type": "string",
+              "description": "End time (ISO format)"
+            },
+            "attendees": {
+              "type": "array",
+              "description": "List of attendee email addresses",
+              "items": {
+                "type": "string"
+              }
+            },
+            "includeGoogleMeetDetails": {
+              "type": "boolean",
+              "description": "Whether to include Google Meet details"
+            }
+          },
+          "required": ["summary", "start", "end"]
         }
       }
-    ),
-    new Tool(
-      "update_event",
-      "Update Calendar Event",
-      "Updates an existing event in the user's Google Calendar",
-      {
-        eventId: { type: "string", description: "ID of the event to update" },
-        summary: { type: "string", description: "Event title", optional: true },
-        location: {
-          type: "string",
-          description: "Event location",
-          optional: true
-        },
-        description: {
-          type: "string",
-          description: "Event description",
-          optional: true
-        },
-        start: {
-          type: "string",
-          description: "Start time (ISO format)",
-          optional: true
-        },
-        end: {
-          type: "string",
-          description: "End time (ISO format)",
-          optional: true
-        },
-        attendees: {
-          type: "array",
-          description: "List of attendee email addresses",
-          optional: true
-        },
-        includeGoogleMeetDetails: {
-          type: "boolean",
-          description: "Whether to include Google Meet details",
-          optional: true
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "update_event",
+        "description": "Updates an existing event in the user's Google Calendar",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "eventId": {
+              "type": "string",
+              "description": "ID of the event to update"
+            },
+            "summary": {
+              "type": "string",
+              "description": "Event title"
+            },
+            "location": {
+              "type": "string",
+              "description": "Event location"
+            },
+            "description": {
+              "type": "string",
+              "description": "Event description"
+            },
+            "start": {
+              "type": "string",
+              "description": "Start time (ISO format)"
+            },
+            "end": {
+              "type": "string",
+              "description": "End time (ISO format)"
+            },
+            "attendees": {
+              "type": "array",
+              "description": "List of attendee email addresses",
+              "items": {
+                "type": "string"
+              }
+            },
+            "includeGoogleMeetDetails": {
+              "type": "boolean",
+              "description": "Whether to include Google Meet details"
+            }
+          },
+          "required": ["eventId"]
         }
       }
-    ),
-    new Tool(
-      "delete_event",
-      "Delete Calendar Event",
-      "Deletes an event from the user's Google Calendar",
-      {
-        eventId: { type: "string", description: "ID of the event to delete" }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "delete_event",
+        "description": "Deletes an event from the user's Google Calendar",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "eventId": {
+              "type": "string",
+              "description": "ID of the event to delete"
+            }
+          },
+          "required": ["eventId"]
+        }
       }
-    )
+    }
   ];
   return new ListToolsResult(tools);
 }
